@@ -1,0 +1,37 @@
+body {
+  overflow-x: hidden;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+
+a {
+  color: #00B7FF;
+}
+
+.admin-nav{
+  display: flex;
+}
+
+.admin-nav li {
+  list-style: none;
+  padding-left: 10px;
+}
+
+.admin-nav li a {
+  text-decoration: none;
+}
+a{
+  text-decoration: none;
+}
+
+nav{
+  background-color: #82AE46;
+}
+.shop-hvr{
+  color: black;
+}
+.shop-hvr:active{
+  color: black;
+}
+.shop-hvr::after{
+  color: black;
+}
