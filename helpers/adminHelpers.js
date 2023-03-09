@@ -3,6 +3,7 @@ const user = require('../model/userSchema');
 const mongoose = require('mongoose');
 const product = require('../model/productSchema');
 const category = require('../model/categorySchema');
+const orders = require('../model/orderSchema');
 const { ObjectId } = mongoose.Types;
 
 module.exports = {
@@ -270,5 +271,18 @@ module.exports = {
                 })
             })
         },
+        getOrderList : ()=>{
+            return new Promise(async(resolve, reject) => {
+               let orderList = await  orders.find().toArray();
+               resolve(orderList);
+            })
+        },
+        getOrderDetails : (orderId)=>{
+            return new Promise(async(resolve, reject) => {
+               let orderData = await orders.findOne({_id:ObjectId(orderId)});
+               console.log("order = ",orderData);
+               resolve(orderData);
+            })
+        }
        
 }

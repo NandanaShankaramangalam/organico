@@ -38,6 +38,12 @@ app.use(function(req, res, next) {
   next(createError(404));
 });
 
+//defined functions
+let hb = hbs.create({})
+hb.handlebars.registerHelper('eq',function(a,b){
+  return a == b;
+});
+
 // error handler
 app.use(function(err, req, res, next) {
   // set locals, only providing error in development

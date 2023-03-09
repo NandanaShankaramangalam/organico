@@ -4,6 +4,7 @@ const adminHelpers=require('../helpers/adminHelpers');
 const fs = require('fs');
 const { showCategory } = require('../helpers/adminHelpers');
 var nocache = require('nocache');
+const userHelpers = require('../helpers/userHelpers');
 
 
 /* GET users listing. */
@@ -85,6 +86,7 @@ router.get('/unblock-user/:id',verifyLogin, (req,res)=>{
 })
 
 router.get('/add-product',verifyLogin,(req,res)=>{
+ 
   errMsg = req.session.errMsg;
   adminHelpers.showCategory().then((show)=>{
     res.render('admin/add-product',{errMsg,show});
@@ -94,6 +96,7 @@ router.get('/add-product',verifyLogin,(req,res)=>{
 })
 
 router.post('/add-product',(req,res)=>{
+  
   adminHelpers.addProducts(req.body).then((data)=>{
     if(data.id){
       id=data.id
@@ -115,7 +118,7 @@ router.get('/product-list',verifyLogin,(req,res)=>{
   admin = req.session.admin;
   if(admin){
     adminHelpers.getProducts().then((products)=>{
-      res.render('admin/product-list',{products});
+      res.render('admin/product-list',{products,admin});
     })
   }
   else{
@@ -158,7 +161,8 @@ router.post('/edit-product/:id',async(req,res)=>{
 
   
   adminHelpers.insertEditedProducts(productId,productData).then((data)=>{
-    if(data.status){  
+   
+    if(data.status){    
       
        if(req.files){
         let image=req.files.image 
@@ -177,12 +181,13 @@ router.post('/edit-product/:id',async(req,res)=>{
 })
 
 router.get('/add-category',verifyLogin,(req,res)=>{
+  let admin = req.session.admin;
   errMsg = req.session.errMsg;
   editCategoryData = req.session.editCategory;
   console.log(editCategoryData);
   adminHelpers.showCategory().then((categoryData)=>{
     // console.log(categoryData);
-  res.render('admin/add-category',{categoryData,errMsg,editCategoryData});
+  res.render('admin/add-category',{categoryData,errMsg,editCategoryData,admin});
   req.session.errMsg = null;
   req.session.editCategory = null; 
   })
@@ -228,4 +233,21 @@ router.get('/delete-category/:id',verifyLogin,(req,res)=>{
   }) 
 
 })
+
+router.get('/order-list',verifyLogin,async(req,res)=>{
+  let orderList = await adminHelpers.getOrderList();
+  console.log("orderList = ",orderList);
+  res.render('admin/order-list',{orderList,admin:req.session.admin}); 
+})
+
+router.get('/order-details/:id',verifyLogin,async(req,res)=>{
+  let orderDetails = await adminHelpers.getOrderDetails(req.params.id);
+  res.render('admin/order-details',{orderDetails});
+})
+
+router.get('/logout',verifyLogin,(req,res)=>{
+  req.session.admin = null;
+  res.redirect('/admin/admin-login');
+})
+
 module.exports = router;

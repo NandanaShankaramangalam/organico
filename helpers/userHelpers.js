@@ -3,9 +3,11 @@ const product = require('../model/productSchema');
 const cart = require('../model/cartSchema');
 const orders = require('../model/orderSchema');
 var bcrypt = require('bcrypt');
+var uuid = require('uuid');
 const nodemailer=require('nodemailer');
 const { default: mongoose } = require('mongoose');
 const { response } = require('express');
+const order = require('../model/orderSchema');
 require('dotenv').config();
 // const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
@@ -245,7 +247,7 @@ module.exports = {
         
        ]).toArray();
        
-       console.log(cartItems);
+       console.log("cart now =",cartItems);
        resolve(cartItems);
       })
 
@@ -270,7 +272,7 @@ module.exports = {
               cart.updateOne({_id:ObjectId(details.cart)},
               {
                 $pull : {products : {item : ObjectId(details.product)}}
-              }).then((response)=>{
+              }).then((response)=>{ 
                 resolve({removeProduct:true});
               })
              }
@@ -297,52 +299,52 @@ module.exports = {
       })
 
      },
-     getTotalAmount : (userId)=>{
-      return new Promise(async (resolve, reject) => {
-        let cartItems = await cart.aggregate([
-         {
-           $match : {userId:ObjectId(userId)}
-         },
-         {
-           $unwind : '$products'
-         },
-         {
-           $project : {
-             item : '$products.item',
-             quantity : '$products.quantity'
-           }
-         },
-         {
-           $lookup : {
-             from : 'products',
-             localField : 'item',
-             foreignField : '_id',
-             as : 'productDetails'
-           }
-         },
-         {
-           $project : {
-             item : 1, quantity : 1, productDetails : {$arrayElemAt:['$productDetails',0]}
-           }
-         },
-         {
-          $group : {
-
-            _id : null,
-            total : {$sum : {$multiply:["$quantity",'$productDetails.price']}}
-          }
-         }
-         
-        ]).toArray();
-        
-        console.log(cartItems);
-        resolve(cartItems);
-       })
+      getTotalAmount : (userId)=>{
+        return new Promise(async(resolve, reject) => {
+          let cartItems = await cart.aggregate([
+            {
+              $match : {userId:ObjectId(userId)}
+            },
+            {
+              $unwind : '$products'
+            },
+            {
+              $project : {
+                item : '$products.item',
+                quantity : '$products.quantity'
+              }
+            },
+            {
+              $lookup : {
+                from : 'products',
+                localField : 'item',
+                foreignField : '_id',
+                as : 'productDetails'
+              }
+            },
+            {
+              $project : {
+                item : 1, quantity : 1, productDetails : {$arrayElemAt:['$productDetails',0]}
+              }
+            },
+            {
+             $group : {
+   
+               _id : null,
+               total : {$sum : {$multiply:["$quantity",'$productDetails.price']}}
+             }
+            }
+            
+           ]).toArray();
+           console.log("hello");
+           resolve(cartItems);
+        })
      },
-     placeOrder : (order,products,total)=>{
+     placeOrder : (order,products,total,userId)=>{
        return new Promise(async (resolve, reject) => {
-        console.log(order,products,total);
+        console.log("sudgfsdfsfds",order);
         let status = order['payment-method'] === 'COD' ? 'placed' : 'pending';
+        let usersId=userId
         let orderObj = {
           deliveryDetails : {
             name : order.fname +" "+ order.lname,
@@ -353,30 +355,31 @@ module.exports = {
             phone : order.phone,
             email : order.email,
           },
-          userId : ObjectId(order.userId),
+          userId : userId,
           paymentMethod : order['payment-method'],
           products : products,
           totalAmount : total,
           status : status,
           date : new Date()
-        } 
+        }
 
         let productCount = products.length;
             for(i=0;i<productCount;i++){
-                let qty =- (products[i].quantity)
+                let qty = -(products[i].quantity)
                 let productId = products[i].item
                 console.log(productId,qty);
-                await cart.findOne({_id:productId});
-
+                await product.findOne({_id:productId});
+                console.log('3')
               
                 product.updateOne({_id:productId},{$inc:{stock:qty}})
+                console.log('4')
             }
         if(order.save == 'true'){
-            user.updateOne({_id:ObjectId(order.userId)},{$push:{address:orderObj.deliveryDetails}});
+            user.updateOne({_id:ObjectId(userId)},{$push:{address:orderObj.deliveryDetails}});
             
         }
           orders.insertOne(orderObj).then((response)=>{
-            cart.deleteOne({userId:ObjectId(order.userId)});
+            cart.deleteOne({userId:ObjectId(userId)});
             resolve();
           })
        })
@@ -387,6 +390,161 @@ module.exports = {
         console.log(cartDetails);
         resolve(cartDetails.products);
        })
+     },
+     getUserInfo : (userId)=>{
+      return new Promise(async(resolve, reject) => {
+        let userInfo = await user.findOne({_id:ObjectId(userId)});
+        resolve(userInfo);
+      })
+     },
+     userInfoUpdate : (userId,data)=>{
+      return new Promise((resolve, reject) => {
+        user.updateOne({_id:ObjectId(userId)},{$set:{name:data.name,email:data.email}}).then(()=>{
+          resolve();
+        });
+      })
+     },
+     getMyOrders : (userId)=>{
+      return new Promise(async(resolve, reject) => {
+        // console.log("hyyy",userId);
+       let orderInfo =  await orders.find({userId:userId}).toArray();
+       console.log("orderinfo = ",orderInfo)
+       resolve(orderInfo);
+      })
+     },
+     getOrderedProducts : (orderId)=>{
+      return new Promise(async(resolve, reject) => {
+        let orderItems = await order.aggregate([
+          {
+            $match : {_id:ObjectId(orderId)}
+          },
+          {
+            $unwind : '$products'
+          },
+          {
+            $project : {
+              item : '$products.item',
+              quantity : '$products.quantity'
+            }
+          },
+          {
+            $lookup : {
+              from : 'products',
+              localField : 'item',
+              foreignField : '_id',
+              as : 'productDetails'
+            }
+          },
+          {
+            $project : {
+              item : 1, quantity : 1, productDetails : {$arrayElemAt:['$productDetails',0]}
+            }
+          }
+         ]).toArray();
+         console.log("hiii=",orderItems);
+         resolve(orderItems);
+      })
+     },
+     removeOrder : (orderId)=>{
+        return new Promise((resolve, reject) => {
+          order.deleteOne({_id:ObjectId(orderId)}).then(()=>{
+            resolve();
+          })
+        })
+     },
+     changePassword : (userId,data)=>{
+      var response = {};
+        return new Promise(async(resolve, reject) => {
+          let userExist = await user.findOne({_id:ObjectId(userId)});
+          console.log("uid = ",userId);
+          console.log("userExist = ",userExist);
+          if(userExist){
+            console.log("Yes user exist! = ",userExist.name);
+            console.log("data = ",data.password);
+            console.log("base = ",userExist.password);
+            bcrypt.compare(data.password,userExist.password).then(async (status)=>{
+              if(status){
+                  console.log("status is true = ",data);
+                  // response.user = user;
+                  // response.status = true;
+                  // resolve(response);
+                  data.newPassword = await bcrypt.hash(data.newPassword,10);
+                  console.log("data.newPassword = ",data.newPassword);
+                  user.updateOne({_id:ObjectId(userId)},{$set:{password:data.newPassword}});
+                  response.message = "Password Changed";
+                  resolve(response);
+              }
+               else{
+              response.message = "Invalid Password!";
+              resolve(response);
+          }
+          })
+      }
+      
+          
+        })
+     },
+     addAddress : (data)=>{
+      return new Promise((resolve, reject) => {
+        console.log("Datasssss",data);
+        let address = {
+          id : uuid.v4(),
+          name : data.fname +" "+ data.lname,
+          street : data.street,
+          state : data.state,
+          town : data.town,
+          zip : data.zip,
+          phone : data.phone,
+          email : data.email,
+        }
+        user.updateOne({_id:ObjectId(data.userId)},{$push:{address:address}}).then(()=>{
+          resolve();
+        });
+      })
+     },
+     getAddress : (userId)=>{
+      return new Promise(async(resolve, reject) => {
+       let userData = await user.findOne({_id:ObjectId(userId)});
+       console.log(userData);
+       resolve(userData);
+      })
+     },
+     removeAddress : (Addid,userId)=>{
+      return new Promise((resolve, reject) => {
+        user.updateOne({_id:ObjectId(userId)},{$pull:{address:{id:Addid}}})
+      })
+     },
+     selectAddress : (id,userId)=>{
+      return new Promise(async(resolve, reject) => {
+      let selectedAddress = await user.aggregate([
+        {
+          $match : {_id:ObjectId(userId)}
+        },
+        {
+          $unwind : '$address'
+        },
+        {
+          $match : {'address.id':id}
+        },
+      ]).toArray();
+      console.log(selectedAddress);
+      let data = selectedAddress[0].address;
+      let name = selectedAddress[0].address.name;
+      let arr = name.split(' ');
+console.log(data);
+      let address = {
+        fname : arr[0],
+        lname : arr[1],
+        street : data.street,
+        state : data.state,
+        town : data.town,
+        zip : data.zip,
+        phone: data.phone,
+        email : data.email
+      }
+      console.log("this address = ",address);
+      resolve(address);
+      })
      }
      
 }
